@@ -2,80 +2,58 @@ import json
 import psycopg2
 import csv
 import os
-import yaml
-from sqlalchemy import create_engine
-import pandas as pd
-from pathlib import Path
 
 
-class RDSDatabaseConnector:
-    
+class DatabaseConnector:
+    def __init__(self, config_file_path, output_folder):
+        self.config_file_path = config_file_path
+        self.output_folder = output_folder
 
-    def __init__(self, rds_table: str, db_credentials: dict) -> None:
+    def read_config(self):
+        with open(self.config_file_path, 'r') as config_file:
+            return json.load(config_file)
         
-        self.db_credentials = db_credentials  
-        self.rds_table = rds_table 
-        self.csv_file_name = self.rds_table + '.csv' 
-
-    def initialise_sqlalchemy_engine(self):
-        
-        DATABASE_TYPE = 'postgresql'
-        DBAPI = 'psycopg2'
-        HOST = self.db_credentials['RDS_HOST']
-        USER = self.db_credentials['RDS_USER']
-        PASSWORD = self.db_credentials['RDS_PASSWORD']
-        DATABASE =self.db_credentials['RDS_DATABASE']
-        PORT = 5432
-
-        engine = create_engine(f"{DATABASE_TYPE}+{DBAPI}://{USER}:{PASSWORD}@{HOST}:{PORT}/{DATABASE}")
-        return engine
+    def connect_to_database(self, connection_params):
+        conn = psycopg2.connect(**connection_params)
+        return conn
     
-
-    def get_dataframe(self):
-        
-        engine = self.initialise_sqlalchemy_engine()
-        dataframe = pd.read_sql_table(self.rds_table, engine)
-        return dataframe
-
-
-    def save_data_in_csv(self):
-        
-        dataframe = self.get_dataframe()
-        try:
-          dataframe.to_csv(self.csv_file_name, encoding='utf-8', index=False)
-          print(f"Extracted data has been successfully saved to the application directory with file name: {self.csv_file_name}.\n")
-        except RuntimeError:
-          print("Something went wrong.\n")
-
-
-    def load_dataframe(self):
-        
-        df = pd.read_csv(Path(self.csv_file_name))
-        print(f'Size of DataFrame: [{df.shape[0]} rows x {df.shape[1]} columns]\n')
-        print(df.head()) 
+    def define_cursor(self):
+        cursor = self.connect_to_database.cursor()
+        return cursor
     
-
-def get_db_credentials(file_name):
+    def close_cursor(self):
+        return self.define_cursor.close()
     
-    credentials = yaml.safe_load(Path(file_name).read_text())
-    return credentials
+    def close_connection(self):
+        return self.connect_to_database.close()
 
 
-def extract_rds_data(rds_table, credentials_file):
+class InfoExtractor(DatabaseConnector):
+    def __init__(self, config_file_path, output_folder):
+        super.__init__(config_file_path, output_folder)
+
+    def export_table_columns_to_csv(self, cursor, table_name, csv_path):
+        with open(csv_path, "w", newline="") as csv_file:
+            csv_writer = csv.writer(csv_file)
+            # Get column names and data types
+            cursor.execute(f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{table_name}'")
+            columns = cursor.fetchall()
+            csv_writer.writerow(["Column Name", "Data Type"])  # Write custom column headers
+            csv_writer.writerows(columns)
+
+    def export_all_table_columns(self):
+        connection_params = self.read_config()
+        with self.connect_to_database(connection_params) as conn:
+            with conn.cursor() as cursor:
+                tables = self.get_table_list(cursor)
+                # Loop through each table and export its columns to a CSV file
+                for table in tables:
+                    csv_path = os.path.join(self.output_folder, f"{table}_columns.csv")
+                    self.export_table_columns_to_csv(cursor, table, csv_path)
+
     
-    credentials = get_db_credentials(credentials_file)
-
-    connector = RDSDatabaseConnector(rds_table, credentials)
-    connector.initialise_sqlalchemy_engine()
-    connector.get_dataframe()
-    connector.save_data_in_csv()
-    connector.load_dataframe()
-
 
 if __name__ == "__main__":
-
-    extract_rds_data("customer_activity", "credentials.yaml")
-
-
-
-
+    output_folder = '/Users/aneves/Desktop/pip-practicals/powerbi'
+    exporter = InfoExtractor(output_folder=output_folder)
+    exporter.export_all_table_columns()
