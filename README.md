@@ -2,7 +2,7 @@
 
 ## Executive Summary:
 
-Using Power BI and Power Query, I pulled data from 6 different sources (including Azure Cloud) and created a relational database model and a Microsoft Power BI report to monitor sales performance across the organisation. The 4-page report is interactive and filterable, and uses historical data from sales to track relevant KPIs and forecast their performance in the near future. 
+Using Power BI and Power Query, I pulled data from different sources (including Azure Cloud) and created a relational database model and a Microsoft Power BI report to monitor sales performance across the organisation. The 4-page report is interactive and filterable, and uses historical data from sales to track relevant KPIs and forecast their performance in the near future. 
 
 I also created custom SQL queries to access the centralised Azure database from outside the Power BI environment.
 
